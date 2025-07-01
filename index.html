@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VizulizeUNIQUE - 3D Tile Visualizer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .neo-box {
+            border-radius: 20px;
+            background: #e0e5ec;
+            box-shadow: 8px 8px 15px #a3b1c6, -8px -8px 15px #ffffff;
+        }
+        .neo-button {
+            border-radius: 10px;
+            background: #e0e5ec;
+            box-shadow: 5px 5px 10px #a3b1c6, -5px -5px 10px #ffffff;
+            transition: all 0.3s ease;
+        }
+        .neo-button:active {
+            box-shadow: inset 5px 5px 10px #a3b1c6, inset -5px -5px 10px #ffffff;
+        }
+        #previewCanvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .preview-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+    </style>
+</head>
+<body class="bg-[#e0e5ec] min-h-screen">
+    <nav class="p-4 neo-box mb-8">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold text-gray-700">VizulizeUNIQUE</h1>
+            <div id="auth-buttons">
+                <button onclick="showModal('login')" class="neo-button px-4 py-2 mr-2">Login</button>
+                <button onclick="showModal('signup')" class="neo-button px-4 py-2">Sign Up</button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container mx-auto px-4">
+        <div class="neo-box p-8 mb-8">
+            <h2 class="text-2xl font-bold mb-4 text-gray-700">3D Tile Visualizer</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div class="space-y-4">
+                    <div class="neo-box p-4">
+                        <h3 class="text-lg font-semibold mb-2">Room Image Upload</h3>
+                        <input type="file" id="roomImage" accept="image/*" class="neo-button p-2 w-full">
+                        <div id="roomImagePreview" class="mt-2 hidden">
+                            <img src="" alt="Room preview" class="w-full h-auto rounded-lg">
+                            <p class="text-sm text-gray-600 mt-1">Room image uploaded</p>
+                        </div>
+                        <p id="roomImageError" class="text-red-500 text-sm mt-1 hidden"></p>
+                    </div>
+                    <div class="neo-box p-4">
+                        <h3 class="text-lg font-semibold mb-2">Tile Image Upload</h3>
+                        <input type="file" id="tileImage" accept="image/*" class="neo-button p-2 w-full">
+                        <div id="tileImagePreview" class="mt-2 hidden">
+                            <img src="" alt="Tile preview" class="w-full h-auto rounded-lg">
+                            <p class="text-sm text-gray-600 mt-1">Tile image uploaded</p>
+                        </div>
+                        <p id="tileImageError" class="text-red-500 text-sm mt-1 hidden"></p>
+                    </div>
+                    <button id="applyTiles" class="neo-button px-6 py-3 w-full font-semibold" disabled>
+                        Apply Tiles
+                    </button>
+                    <p id="uploadStatus" class="text-sm text-center mt-2"></p>
+                </div>
+                <div class="neo-box p-4">
+                        <div class="preview-container">
+                            <canvas id="previewCanvas"></canvas>
+                        </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="neo-box p-8 mb-8">
+            <h2 class="text-2xl font-bold mb-4 text-gray-700">Features</h2>
+            <div id="features-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Features will be loaded here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Modal Template -->
+    <div id="modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center">
+        <div class="neo-box p-8 max-w-md w-full mx-4">
+            <div id="login-form" class="hidden">
+                <h2 class="text-2xl font-bold mb-4">Login</h2>
+                <input type="email" id="login-email" placeholder="Email" class="neo-button p-2 mb-4 w-full">
+                <input type="password" id="login-password" placeholder="Password" class="neo-button p-2 mb-4 w-full">
+                <button onclick="handleLogin()" class="neo-button px-6 py-3 w-full font-semibold">Login</button>
+            </div>
+            <div id="signup-form" class="hidden">
+                <h2 class="text-2xl font-bold mb-4">Sign Up</h2>
+                <input type="email" id="signup-email" placeholder="Email" class="neo-button p-2 mb-4 w-full">
+                <input type="password" id="signup-password" placeholder="Password" class="neo-button p-2 mb-4 w-full">
+                <button onclick="handleSignup()" class="neo-button px-6 py-3 w-full font-semibold">Sign Up</button>
+            </div>
+            <button onclick="hideModal()" class="neo-button px-4 py-2 mt-4">Close</button>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let userId = localStorage.getItem('userId') || `user-${Date.now()}`;
+        let roomImageData = null;
+        let tileImageData = null;
+        const appSlug = 'vizualize-unique-123456';
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            if (!localStorage.getItem('userId')) {
+                localStorage.setItem('userId', userId);
+            }
+            loadFeatures();
+        });
+
+        // Load features from CSV
+        async function loadFeatures() {
+            try {
+                const response = await fetch('https://db.zetaverse.one/storage/v1/object/public/app-uploads/spreadsheet-1751368704887/g2CATUmD2Gc2b8MmPNSBXbuxQAB2/457sflkh.csv');
+                const csvText = await response.text();
+                
+                Papa.parse(csvText, {
+                    header: true,
+                    complete: function(results) {
+                        const container = document.getElementById('features-container');
+                        results.data.forEach(row => {
+                            if (row.Section && row.Title) {
+                                const feature = document.createElement('div');
+                                feature.className = 'neo-box p-4';
+                                feature.innerHTML = `
+                                    <h3 class="text-lg font-semibold mb-2">${row.Title}</h3>
+                                    <p class="text-gray-600">${row.Details || ''}</p>
+                                `;
+                                container.appendChild(feature);
+                            }
+                        });
+                    }
+                });
+            } catch (error) {
+                console.error('Error loading features:', error);
+            }
+        }
+
+        // Image handling
+        document.getElementById('roomImage').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Show loading state
+                document.getElementById('uploadStatus').textContent = 'Uploading room image...';
+                document.getElementById('roomImageError').classList.add('hidden');
+                
+                // Create preview
+                const reader = new FileReader();
+                reader.onload = (e) => document.querySelector('#roomImagePreview img').src = e.target.result;
+                reader.readAsDataURL(file);
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('userId', userId);
+                formData.append('appSlug', appSlug);
+
+                try {
+                    const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/storage/upload', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer g2CATUmD2Gc2b8MmPNSBXbuxQAB2'
+                        },
+                        body: formData
+                    });
+                    const data = await response.json();
+                    roomImageData = data;
+                    document.getElementById('roomImagePreview').classList.remove('hidden');
+                    document.getElementById('uploadStatus').textContent = '';
+                    updatePreview();
+                } catch (error) {
+                    document.getElementById('roomImageError').textContent = 'Error uploading image. Please try again.';
+                    document.getElementById('roomImageError').classList.remove('hidden');
+                    document.getElementById('uploadStatus').textContent = '';
+                    console.error('Error uploading room image:', error);
+                }
+            }
+        });
+
+        document.getElementById('tileImage').addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                // Show loading state
+                document.getElementById('uploadStatus').textContent = 'Uploading tile image...';
+                document.getElementById('tileImageError').classList.add('hidden');
+                
+                // Create preview
+                const reader = new FileReader();
+                reader.onload = (e) => document.querySelector('#tileImagePreview img').src = e.target.result;
+                reader.readAsDataURL(file);
+                
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('userId', userId);
+                formData.append('appSlug', appSlug);
+
+                try {
+                    const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/storage/upload', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer g2CATUmD2Gc2b8MmPNSBXbuxQAB2'
+                        },
+                        body: formData
+                    });
+                    const data = await response.json();
+                    tileImageData = data;
+                    document.getElementById('tileImagePreview').classList.remove('hidden');
+                    document.getElementById('applyTiles').disabled = false;
+                    document.getElementById('uploadStatus').textContent = '';
+                    updatePreview();
+                } catch (error) {
+                    document.getElementById('tileImageError').textContent = 'Error uploading image. Please try again.';
+                    document.getElementById('tileImageError').classList.remove('hidden');
+                    document.getElementById('uploadStatus').textContent = '';
+                    console.error('Error uploading tile image:', error);
+                }
+            }
+        });
+
+        // Apply Tiles button click handler
+        document.getElementById('applyTiles').addEventListener('click', () => {
+            if (!roomImageData || !tileImageData) {
+                document.getElementById('uploadStatus').textContent = 'Please upload both room and tile images first.';
+                return;
+            }
+            document.getElementById('uploadStatus').textContent = 'Applying tiles...';
+            applyTilesToRoom();
+            document.getElementById('uploadStatus').textContent = 'Tiles applied successfully!';
+        });
+
+        function updatePreview() {
+            const canvas = document.getElementById('previewCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            if (roomImageData) {
+                const img = new Image();
+                const tileImg = new Image();
+                
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.drawImage(img, 0, 0);
+
+                    if (tileImageData) {
+                        tileImg.onload = () => {
+                            // Create pattern with tile image
+                            const pattern = ctx.createPattern(tileImg, 'repeat');
+                            ctx.globalAlpha = 0.5;
+                            ctx.fillStyle = pattern;
+                            ctx.fillRect(0, canvas.height/2, canvas.width, canvas.height/2);
+                            ctx.globalAlpha = 1;
+                        };
+                        tileImg.src = tileImageData.url;
+                    }
+                };
+                
+                img.onerror = () => {
+                    console.error('Error loading room image');
+                    document.getElementById('roomImageError').textContent = 'Error loading image';
+                    document.getElementById('roomImageError').classList.remove('hidden');
+                };
+                
+                img.src = roomImageData.url;
+            }
+        }
+
+        // Modal functions
+        function showModal(type) {
+            document.getElementById('modal').style.display = 'flex';
+            document.getElementById('login-form').style.display = type === 'login' ? 'block' : 'none';
+            document.getElementById('signup-form').style.display = type === 'signup' ? 'block' : 'none';
+        }
+
+        function hideModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer g2CATUmD2Gc2b8MmPNSBXbuxQAB2',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug,
+                        action: 'read',
+                        collection: 'users',
+                        conditions: { email, password }
+                    })
+                });
+                const data = await response.json();
+                if (data.result.read.length > 0) {
+                    hideModal();
+                    alert('Login successful!');
+                } else {
+                    alert('Invalid credentials');
+                }
+            } catch (error) {
+                console.error('Login error:', error);
+                alert('Login failed');
+            }
+        }
+
+        async function handleSignup() {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            
+            try {
+                const response = await fetch('https://r0c8kgwocscg8gsokogwwsw4.zetaverse.one/mongodb', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer g2CATUmD2Gc2b8MmPNSBXbuxQAB2',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        appSlug,
+                        action: 'create',
+                        collection: 'users',
+                        data: { email, password }
+                    })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    hideModal();
+                    alert('Signup successful! Please login.');
+                } else {
+                    alert('Signup failed');
+                }
+            } catch (error) {
+                console.error('Signup error:', error);
+                alert('Signup failed');
+            }
+        }
+    </script>
+<script>document.body.addEventListener('wheel', e => { if (!e.ctrlKey) return; e.preventDefault(); return }, { passive: false })</script>
+	</body>
+</html>
